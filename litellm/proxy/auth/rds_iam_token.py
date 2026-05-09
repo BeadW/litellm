@@ -185,3 +185,45 @@ def generate_iam_auth_token(
     cleaned_token = quote(token, safe="")
 
     return cleaned_token
+
+
+def init_iam_db_url_from_env() -> None:
+    """Construct DATABASE_URL from RDS IAM env vars if IAM_TOKEN_DB_AUTH is set.
+
+    Mirrors the equivalent block in `litellm/proxy/proxy_cli.py`. Needs to be
+    called by entrypoints that bypass proxy_cli (e.g. the componentized
+    gateway/backend uvicorn entrypoints) before the FastAPI lifespan runs
+    Prisma initialization, otherwise Prisma sees an empty DATABASE_URL and
+    every DB-needing endpoint returns "Database not connected".
+
+    No-op if IAM_TOKEN_DB_AUTH is unset/false, if DATABASE_URL is already
+    populated (don't clobber proxy_cli or an explicit override), or if any
+    of the required DATABASE_HOST / DATABASE_USER / DATABASE_NAME env vars
+    are missing.
+    """
+    from litellm.secret_managers.main import get_secret_bool
+
+    if not get_secret_bool("IAM_TOKEN_DB_AUTH"):
+        return
+    if os.environ.get("DATABASE_URL"):
+        return
+
+    db_host = os.getenv("DATABASE_HOST")
+    # Default to the Postgres standard port — without it,
+    # `db_port=None` flows into `boto.generate_db_auth_token(Port=None)` and
+    # botocore stringifies it to "None" while signing the presigned URL,
+    # which then blows up with `ValueError: Port could not be cast to
+    # integer value as 'None'`.
+    db_port = os.getenv("DATABASE_PORT", "5432")
+    db_user = os.getenv("DATABASE_USER")
+    db_name = os.getenv("DATABASE_NAME")
+    db_schema = os.getenv("DATABASE_SCHEMA")
+
+    if not (db_host and db_user and db_name):
+        return
+
+    token = generate_iam_auth_token(db_host=db_host, db_port=db_port, db_user=db_user)
+    db_url = f"postgresql://{db_user}:{token}@{db_host}:{db_port}/{db_name}"
+    if db_schema:
+        db_url += f"?schema={db_schema}"
+    os.environ["DATABASE_URL"] = db_url

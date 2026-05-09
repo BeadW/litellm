@@ -11,6 +11,15 @@ Run with:
 
 from fastapi.routing import Mount
 
+# Construct DATABASE_URL from RDS IAM env vars before proxy_server imports
+# spin up Prisma. The standard CLI flow does this in proxy_cli.py; we bypass
+# proxy_cli by uvicorn'ing the app directly, so we'd otherwise see Prisma
+# initialize with an empty DATABASE_URL and every DB-needing endpoint return
+# "Database not connected". No-op when IAM_TOKEN_DB_AUTH is unset.
+from litellm.proxy.auth.rds_iam_token import init_iam_db_url_from_env
+
+init_iam_db_url_from_env()
+
 from litellm.proxy.proxy_server import app
 
 from gateway.routes.allowlist import GATEWAY_EXACT_PATHS, GATEWAY_PATH_PREFIXES

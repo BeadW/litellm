@@ -10,6 +10,12 @@ Run with:
 
 from fastapi.routing import Mount
 
+# Construct DATABASE_URL from RDS IAM env vars before proxy_server imports
+# spin up Prisma. See gateway/main.py for the long version.
+from litellm.proxy.auth.rds_iam_token import init_iam_db_url_from_env
+
+init_iam_db_url_from_env()
+
 from litellm.proxy.proxy_server import app
 
 from backend.routes.allowlist import BACKEND_EXACT_PATHS, BACKEND_PATH_PREFIXES
