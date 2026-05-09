@@ -6,6 +6,17 @@ fullnameOverride: ""
 
 imagePullSecrets: []
 
+# Shared ServiceAccount used by all three component Deployments. Set
+# `create: true` to have the chart provision it (e.g. when wiring an EKS
+# Pod Identity association by SA name). Set `name` to use an existing SA
+# (chart-created or out-of-band). When both are empty / false, pods run
+# with the namespace's `default` SA.
+serviceAccount:
+  create: false
+  automount: true
+  annotations: {}
+  name: ""
+
 # Required: a master key used by gateway + backend to mint/verify proxy tokens.
 # Either set `masterKey.value` (chart will create a Secret) or set `masterKey.existingSecret`
 # (chart will reference it; secret must contain key `master-key`).

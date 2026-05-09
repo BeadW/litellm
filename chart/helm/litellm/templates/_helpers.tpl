@@ -56,6 +56,20 @@ app.kubernetes.io/component: ui
 {{- end -}}
 
 {{/*
+Shared ServiceAccount name used by all three component Deployments. When
+`serviceAccount.create` is true and `serviceAccount.name` is empty, default
+to the chart fullname. When `create` is false, fall back to the provided
+name or the namespace's `default` SA.
+*/}}
+{{- define "litellm.serviceAccountName" -}}
+{{- if .Values.serviceAccount.create -}}
+{{ default (include "litellm.fullname" .) .Values.serviceAccount.name }}
+{{- else -}}
+{{ default "default" .Values.serviceAccount.name }}
+{{- end -}}
+{{- end -}}
+
+{{/*
 Master-key + database env block — gateway and backend share the same wiring.
 */}}
 {{- define "litellm.serverEnv" -}}
