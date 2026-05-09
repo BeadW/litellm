@@ -1,0 +1,81 @@
+{{- if .Values.ingress.enabled -}}
+{{- $gatewayName := include "litellm.gateway.fullname" . -}}
+{{- $backendName := include "litellm.backend.fullname" . -}}
+{{- $uiName := include "litellm.ui.fullname" . -}}
+{{- $gatewayPort := .Values.gateway.service.port -}}
+{{- $backendPort := .Values.backend.service.port -}}
+{{- $uiPort := .Values.ui.service.port -}}
+{{/* Gateway data-plane prefixes — mirrors gateway/routes/allowlist.py. */}}
+{{- $gatewayPrefixes := list "/v1" "/v2" "/openai" "/chat" "/completions" "/embeddings" "/moderations" "/audio" "/images" "/files" "/batches" "/fine_tuning" "/fine-tuning" "/responses" "/threads" "/assistants" "/vector_stores" "/messages" "/rerank" "/ocr" "/rag" "/video" "/search" "/containers" "/anthropic" "/azure" "/aws" "/bedrock" "/cohere" "/gemini" "/google" "/vertex_ai" "/vertex-ai" "/assemblyai" "/langfuse" "/vllm" "/mistral" "/groq" "/voyage" "/realtime" "/health" "/metrics" -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "litellm.fullname" . }}
+  labels:
+    {{- include "litellm.commonLabels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.ingress.className }}
+  ingressClassName: {{ . | quote }}
+  {{- end }}
+  {{- with .Values.ingress.tls }}
+  tls:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  rules:
+    - {{- with .Values.ingress.host }}
+      host: {{ . | quote }}
+      {{- end }}
+      http:
+        paths:
+          # --- UI (Next.js static export) ---
+          - path: /
+            pathType: Exact
+            backend:
+              service:
+                name: {{ $uiName }}
+                port:
+                  number: {{ $uiPort }}
+          - path: /favicon.ico
+            pathType: Exact
+            backend:
+              service:
+                name: {{ $uiName }}
+                port:
+                  number: {{ $uiPort }}
+          - path: /litellm-asset-prefix
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $uiName }}
+                port:
+                  number: {{ $uiPort }}
+          - path: /_next
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $uiName }}
+                port:
+                  number: {{ $uiPort }}
+          # --- Gateway data plane ---
+          {{- range $gatewayPrefixes }}
+          - path: {{ . }}
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $gatewayName }}
+                port:
+                  number: {{ $gatewayPort }}
+          {{- end }}
+          # --- Catch-all → backend (management API: /key/*, /user/*, /team/*, ...) ---
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $backendName }}
+                port:
+                  number: {{ $backendPort }}
+{{- end }}
