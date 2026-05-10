@@ -18,7 +18,15 @@ metadata:
     {{- include "litellm.commonLabels" . | nindent 4 }}
     app.kubernetes.io/component: migrations
   annotations:
-    helm.sh/hook: pre-install,pre-upgrade
+    # post-install / post-upgrade so the chart's regular resources
+    # (ServiceAccount in particular) are applied first — a pre-install hook
+    # would race against the SA template and the Job pod fails to schedule
+    # with `serviceaccount "<name>" not found`. The race the other way
+    # (gateway / backend pods trying to query Prisma before the schema
+    # exists) self-resolves: prisma_migration.py finishes in ~10s while
+    # pod imports take ~60s, and any pod that does crash backs off and
+    # retries successfully once the Job completes.
+    helm.sh/hook: post-install,post-upgrade
     helm.sh/hook-delete-policy: before-hook-creation
     helm.sh/hook-weight: "0"
 spec:
