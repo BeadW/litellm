@@ -46,7 +46,11 @@ FROM $LITELLM_RUNTIME_IMAGE AS runtime
 
 USER root
 
-RUN apk add --no-cache bash openssl tzdata python3 libsndfile
+# libatomic is required by the prebuilt Node binary that the prisma CLI
+# bundles — without it, `prisma migrate deploy` (run by the chart's pre-
+# install / pre-upgrade migrationJob) fails with
+# `error while loading shared libraries: libatomic.so.1`.
+RUN apk add --no-cache bash openssl tzdata python3 libsndfile libatomic
 
 WORKDIR /app
 ENV PATH="/app/.venv/bin:${PATH}" \

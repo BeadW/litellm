@@ -33,6 +33,17 @@ serviceAccount:
   annotations: {}
   name: ""
 
+# Pre-install / pre-upgrade Helm hook that runs `prisma migrate deploy`
+# against the configured database, creating the LiteLLM schema (tables that
+# gateway + backend assume exist at startup: LiteLLM_Config,
+# LiteLLM_VerificationToken, LiteLLM_SpendLogs, ...). Disable if your
+# pipeline runs migrations out-of-band.
+migrationJob:
+  enabled: true
+  backoffLimit: 4
+  ttlSecondsAfterFinished: 120
+  resources: {}
+
 # Required: a master key used by gateway + backend to mint/verify proxy tokens.
 # Either set `masterKey.value` (chart will create a Secret) or set `masterKey.existingSecret`
 # (chart will reference it; secret must contain key `master-key`).
